@@ -504,11 +504,6 @@ class SudokuGUI:
         board = self.get_board_from_ui()
         self.initial_state = board.copy()
         
-        # Quick validation
-        if sum(1 for x in board if x != 0) < 17:
-            messagebox.showwarning("Insufficient Clues", "Need at least 17 given numbers for a valid Sudoku!")
-            return
-        
         self.is_solving = True
         self.status_var.set("🤖 AI Solver running... Applying Arc Consistency!")
         
