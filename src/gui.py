@@ -17,6 +17,9 @@ class SudokuGUI:
         self.root.geometry("800x900")
         self.root.configure(bg='#1a1a2e')
         
+        # Make window resizable
+        self.root.resizable(True, True)
+        
         # Modern color scheme
         self.colors = {
             'bg': '#1a1a2e',
@@ -47,12 +50,49 @@ class SudokuGUI:
         self.create_widgets()
         
     def create_widgets(self):
-        # Main container
-        main_frame = tk.Frame(self.root, bg=self.colors['bg'])
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        # Create canvas with scrollbar for scrollable content
+        canvas = tk.Canvas(self.root, bg=self.colors['bg'], highlightthickness=0)
+        scrollbar = tk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
+        
+        # Main container inside canvas
+        main_frame = tk.Frame(canvas, bg=self.colors['bg'])
+        
+        # Configure canvas
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack scrollbar and canvas
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Create window in canvas
+        canvas_frame = canvas.create_window((0, 0), window=main_frame, anchor="nw")
+        
+        # Update scroll region when frame size changes
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        
+        def on_canvas_configure(event):
+            # Center the frame if it's smaller than canvas
+            canvas_width = event.width
+            frame_width = main_frame.winfo_reqwidth()
+            if frame_width < canvas_width:
+                canvas.itemconfig(canvas_frame, width=canvas_width)
+        
+        main_frame.bind("<Configure>", on_frame_configure)
+        canvas.bind("<Configure>", on_canvas_configure)
+        
+        # Enable mousewheel scrolling
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", on_mousewheel)
+        
+        # Add padding frame
+        content_frame = tk.Frame(main_frame, bg=self.colors['bg'])
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
         # Title with styling
-        title_frame = tk.Frame(main_frame, bg=self.colors['bg'])
+        title_frame = tk.Frame(content_frame, bg=self.colors['bg'])
         title_frame.pack(pady=(0, 20))
         
         title_label = tk.Label(
@@ -74,7 +114,7 @@ class SudokuGUI:
         subtitle_label.pack()
         
         # Grid container with border
-        grid_container = tk.Frame(main_frame, bg=self.colors['highlight'], bd=3)
+        grid_container = tk.Frame(content_frame, bg=self.colors['highlight'], bd=3)
         grid_container.pack(pady=20)
         
         grid_frame = tk.Frame(grid_container, bg=self.colors['grid_dark'])
@@ -132,7 +172,7 @@ class SudokuGUI:
             self.cell_frames.append(row_frames)
         
         # Controls container
-        controls_container = tk.Frame(main_frame, bg=self.colors['bg'])
+        controls_container = tk.Frame(content_frame, bg=self.colors['bg'])
         controls_container.pack(pady=20, fill=tk.X)
         
         # Mode 1: Generate Puzzle
@@ -275,7 +315,7 @@ class SudokuGUI:
         speed_info.pack(side=tk.LEFT, padx=5)
         
         # Status bar
-        status_frame = tk.Frame(main_frame, bg=self.colors['accent'], bd=2, relief=tk.SUNKEN)
+        status_frame = tk.Frame(content_frame, bg=self.colors['accent'], bd=2, relief=tk.SUNKEN)
         status_frame.pack(fill=tk.X, pady=(10, 0))
         
         self.status_var = tk.StringVar(value="Ready to solve puzzles! 🚀")
