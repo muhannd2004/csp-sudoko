@@ -38,11 +38,13 @@ class SudokuGUI:
         
         self.cells = []
         self.cell_frames = []
+        self.domain_labels = []  # New: labels to show domains
         self.game_state = [0] * 81
         self.initial_state = [0] * 81
         self.is_solving = False
         self.solving_speed = 0.05
         self.game_constrains = [[] for _ in range(81)]
+        self.show_domains = False  # Toggle for domain display
         
         # Setup constraints once
         make_constrain(self.game_constrains)
@@ -124,14 +126,15 @@ class SudokuGUI:
         for row in range(9):
             row_cells = []
             row_frames = []
+            row_domain_labels = []
             for col in range(9):
                 # Determine background color (alternating 3x3 boxes)
                 box_row = row // 3
                 box_col = col // 3
                 bg_color = self.colors['grid_dark'] if (box_row + box_col) % 2 == 0 else self.colors['grid_light']
                 
-                # Cell frame
-                cell_frame = tk.Frame(
+                # Cell container frame
+                cell_container = tk.Frame(
                     grid_frame,
                     bg=bg_color,
                     highlightbackground=self.colors['accent'],
@@ -142,11 +145,11 @@ class SudokuGUI:
                 padx = (4, 1) if col % 3 == 0 else (1, 1)
                 pady = (4, 1) if row % 3 == 0 else (1, 1)
                 
-                cell_frame.grid(row=row, column=col, padx=padx, pady=pady)
+                cell_container.grid(row=row, column=col, padx=padx, pady=pady)
                 
                 # Entry widget with modern styling
                 entry = tk.Entry(
-                    cell_frame,
+                    cell_container,
                     width=2,
                     font=("Helvetica", 20, "bold"),
                     justify="center",
@@ -156,7 +159,19 @@ class SudokuGUI:
                     insertbackground=self.colors['highlight'],
                     bd=0
                 )
-                entry.pack(padx=8, pady=8)
+                entry.pack(padx=8, pady=(8, 2))
+                
+                # Domain label (initially hidden)
+                domain_label = tk.Label(
+                    cell_container,
+                    text="",
+                    font=("Courier", 6),
+                    fg=self.colors['text_dim'],
+                    bg=bg_color,
+                    justify="center",
+                    wraplength=45  # Allow text wrapping for long domains
+                )
+                domain_label.pack(padx=2, pady=(0, 4))
                 
                 # Validate input
                 vcmd = (self.root.register(self.validate_input), '%P')
@@ -166,10 +181,12 @@ class SudokuGUI:
                 entry.bind('<KeyRelease>', lambda e, r=row, c=col: self.check_cell_conflict(r, c))
                 
                 row_cells.append(entry)
-                row_frames.append(cell_frame)
+                row_frames.append(cell_container)
+                row_domain_labels.append(domain_label)
                 
             self.cells.append(row_cells)
             self.cell_frames.append(row_frames)
+            self.domain_labels.append(row_domain_labels)
         
         # Controls container
         controls_container = tk.Frame(content_frame, bg=self.colors['bg'])
@@ -256,6 +273,25 @@ class SudokuGUI:
         )
         check_btn.pack(side=tk.LEFT, padx=5)
         self.add_hover_effect(check_btn)
+        
+        # Toggle domains button
+        domains_btn = tk.Button(
+            action_buttons_frame,
+            text="👁️ Show Domains",
+            command=self.toggle_domains,
+            font=("Helvetica", 11, "bold"),
+            fg=self.colors['text'],
+            bg='#9b59b6',
+            activebackground='#8e44ad',
+            activeforeground=self.colors['text'],
+            bd=0,
+            padx=20,
+            pady=10,
+            cursor="hand2"
+        )
+        domains_btn.pack(side=tk.LEFT, padx=5)
+        self.add_hover_effect(domains_btn)
+        self.domains_btn = domains_btn  # Store reference
         
         clear_btn = tk.Button(
             action_buttons_frame,
@@ -394,6 +430,10 @@ class SudokuGUI:
             board = self.get_board_from_ui()
             if not self.has_any_conflicts(board):
                 self.status_var.set("✅ No conflicts detected!")
+        
+        # Update domains if enabled
+        if self.show_domains:
+            self.update_domain_display()
     
     def has_any_conflicts(self, board):
         """Check if board has any conflicts"""
@@ -444,30 +484,137 @@ class SudokuGUI:
             for c in range(9):
                 self.cells[r][c].delete(0, tk.END)
                 self.cells[r][c].config(state=tk.NORMAL, fg=self.colors['text'])
+                self.domain_labels[r][c].config(text="")
         self.initial_state = [0] * 81
+        self.show_domains = False
+        self.domains_btn.config(text="👁️ Show Domains")
         self.status_var.set("Board cleared! Ready for new puzzle. 🎯")
+    
+    def toggle_domains(self):
+        """Toggle domain display on/off"""
+        self.show_domains = not self.show_domains
+        
+        if self.show_domains:
+            self.domains_btn.config(text="👁️ Hide Domains")
+            self.update_domain_display()
+        else:
+            self.domains_btn.config(text="👁️ Show Domains")
+            # Clear all domain labels
+            for r in range(9):
+                for c in range(9):
+                    self.domain_labels[r][c].config(text="")
+    
+    def update_domain_display(self):
+        """Calculate and display current domains for all cells"""
+        try:
+            board = self.get_board_from_ui()
+            
+            # Setup constraints
+            game_constrains = [[] for _ in range(81)]
+            make_constrain(game_constrains)
+            
+            # Setup initial domains
+            domains = []
+            for val in board:
+                if val != 0:
+                    domains.append({val})
+                else:
+                    domains.append(set(range(1, 10)))
+            
+            # Apply AC-3 to get reduced domains
+            ac3(game_constrains, domains)
+            
+            # Display domains
+            for r in range(9):
+                for c in range(9):
+                    idx = r * 9 + c
+                    if board[idx] == 0:  # Only show for empty cells
+                        domain = domains[idx]
+                        if len(domain) == 0:
+                            domain_text = "✗"
+                            color = '#ff3333'
+                        elif len(domain) == 1:
+                            domain_text = str(list(domain)[0])
+                            color = '#2ecc71'
+                        else:
+                            # Format domain - show all values
+                            domain_list = sorted(list(domain))
+                            if len(domain_list) <= 3:
+                                # Short domain: show in one line
+                                domain_text = ''.join(str(d) for d in domain_list)
+                            elif len(domain_list) <= 6:
+                                # Medium domain: show in two lines
+                                mid = (len(domain_list) + 1) // 2
+                                line1 = ''.join(str(d) for d in domain_list[:mid])
+                                line2 = ''.join(str(d) for d in domain_list[mid:])
+                                domain_text = f"{line1}\n{line2}"
+                            else:
+                                # Long domain: show in three lines (max 9 digits: 123/456/789)
+                                domain_text = ''.join(str(d) for d in domain_list[:3]) + '\n'
+                                domain_text += ''.join(str(d) for d in domain_list[3:6]) + '\n'
+                                domain_text += ''.join(str(d) for d in domain_list[6:])
+                            color = self.colors['text_dim']
+                        
+                        self.domain_labels[r][c].config(text=domain_text, fg=color)
+                    else:
+                        self.domain_labels[r][c].config(text="")
+            
+            # Clear references to help garbage collection
+            del domains, game_constrains, board
+            
+            self.root.update()
+            
+        except Exception as e:
+            print(f"Error updating domain display: {e}")
+            # Clear domains on error
+            for r in range(9):
+                for c in range(9):
+                    self.domain_labels[r][c].config(text="")
     
     def generate(self, difficulty):
         """Generate a random puzzle of specified difficulty"""
+        # Prevent multiple generations at once
+        if self.is_solving:
+            messagebox.showwarning("Busy", "Please wait for current operation to complete!")
+            return
+            
         self.clear_board()
         self.status_var.set(f"Generating {difficulty} puzzle... ⏳")
         self.root.update()
         
-        board = generate_sudoku(difficulty)
-        self.initial_state = board.copy()
-        self.update_ui_from_board(board)
-        
-        # Lock given cells
-        for r in range(9):
-            for c in range(9):
-                if board[r * 9 + c] != 0:
-                    self.cells[r][c].config(fg=self.colors['given'])
-        
-        givens = sum(1 for x in board if x != 0)
-        self.status_var.set(f"✅ {difficulty} puzzle generated! ({givens} given numbers)")
+        try:
+            board = generate_sudoku(difficulty)
+            
+            # Check if generation succeeded
+            if board is None or sum(1 for x in board if x != 0) < 17:
+                messagebox.showerror("Generation Failed", "Failed to generate a valid puzzle. Please try again.")
+                self.status_var.set("❌ Generation failed. Try again.")
+                return
+                
+            self.initial_state = board.copy()
+            self.update_ui_from_board(board)
+            
+            # Lock given cells
+            for r in range(9):
+                for c in range(9):
+                    if board[r * 9 + c] != 0:
+                        self.cells[r][c].config(fg=self.colors['given'])
+            
+            givens = sum(1 for x in board if x != 0)
+            self.status_var.set(f"✅ {difficulty} puzzle generated! ({givens} given numbers)")
+            
+            # Update domains if domain view is enabled
+            if self.show_domains:
+                self.update_domain_display()
+                
+        except Exception as e:
+            print(f"Error generating puzzle: {e}")
+            messagebox.showerror("Error", f"Failed to generate puzzle: {str(e)}")
+            self.status_var.set("❌ Error generating puzzle")
+            self.clear_board()
     
     def check_solvability(self):
-        """Validate board and check difficulty"""
+        """Validate board and check if it has a unique solution using AC-3 only"""
         board = self.get_board_from_ui()
         
         # Setup constraints
@@ -483,17 +630,51 @@ class SudokuGUI:
                         messagebox.showerror("Invalid Board", "There is a conflict in the board!\nSame number appears in row/column/box.")
                         return
         
-        difficulty = get_difficulty(board)
-        givens = sum(1 for x in board if x != 0)
+        # Setup domains for AC-3
+        domains = []
+        for val in board:
+            if val != 0:
+                domains.append({val})
+            else:
+                domains.append(set(range(1, 10)))
         
-        self.status_var.set(f"✅ Board is valid! Difficulty: {difficulty} ({givens} numbers)")
-        messagebox.showinfo(
-            "Board Validation",
-            f"✅ Board appears valid!\n\n"
-            f"📊 Difficulty: {difficulty}\n"
-            f"🔢 Given numbers: {givens}/81\n"
-            f"📝 Empty cells: {81 - givens}"
-        )
+        # Apply AC-3
+        domains_copy = [d.copy() for d in domains]
+        if not ac3(game_constrains, domains_copy):
+            self.status_var.set("❌ Board is unsolvable!")
+            messagebox.showerror("Unsolvable Board", "This board has no solution!\nAC-3 detected inconsistency.")
+            return
+        
+        # Check if AC-3 alone gives a unique solution (all domains have size 1)
+        unsolved_cells = sum(1 for d in domains_copy if len(d) > 1)
+        
+        if unsolved_cells == 0:
+            # AC-3 solved it completely - unique solution
+            difficulty = get_difficulty(board)
+            givens = sum(1 for x in board if x != 0)
+            self.status_var.set(f"✅ Board has unique solution! Difficulty: {difficulty}")
+            messagebox.showinfo(
+                "✅ Valid & Unique Solution",
+                f"✅ Board is valid and has a UNIQUE solution!\n"
+                f"(Verified by Arc Consistency only)\n\n"
+                f"📊 Difficulty: {difficulty}\n"
+                f"🔢 Given numbers: {givens}/81\n"
+                f"📝 Empty cells: {81 - givens}"
+            )
+        else:
+            # AC-3 didn't solve it completely - may have multiple solutions
+            difficulty = get_difficulty(board)
+            givens = sum(1 for x in board if x != 0)
+            self.status_var.set(f"⚠️ Board may have multiple solutions! ({unsolved_cells} cells unsolved by AC-3)")
+            messagebox.showwarning(
+                "⚠️ Multiple Solutions Possible",
+                f"⚠️ Board is valid but may have MULTIPLE solutions!\n"
+                f"(Arc Consistency alone couldn't solve it)\n\n"
+                f"📊 Difficulty: {difficulty}\n"
+                f"🔢 Given numbers: {givens}/81\n"
+                f"📝 Unsolved cells after AC-3: {unsolved_cells}\n\n"
+                f"Note: Use 'Solve with AI' to find a solution using backtracking."
+            )
     
     def start_solve(self):
         """Start solving in a separate thread"""
