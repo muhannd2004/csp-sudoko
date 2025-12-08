@@ -1,8 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 import threading
-import time
-import copy
+
 from sudoku_generator import generate_sudoku, get_difficulty
 from make_constrain import make_constrain
 from back_track import back_track
@@ -14,7 +13,7 @@ class SudokuGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("🧩 CSP Sudoku Solver - AI Powered")
-        self.root.geometry("800x900")
+        self.root.geometry("750x800")
         self.root.configure(bg='#1a1a2e')
         
         # Make window resizable
@@ -42,7 +41,6 @@ class SudokuGUI:
         self.game_state = [0] * 81
         self.initial_state = [0] * 81
         self.is_solving = False
-        self.solving_speed = 0.05
         self.game_constrains = [[] for _ in range(81)]
         self.show_domains = False  # Toggle for domain display
         self.domain_mode = "simple"  # "simple" or "ac3"
@@ -92,16 +90,16 @@ class SudokuGUI:
         
         # Add padding frame
         content_frame = tk.Frame(main_frame, bg=self.colors['bg'])
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Title with styling
         title_frame = tk.Frame(content_frame, bg=self.colors['bg'])
-        title_frame.pack(pady=(0, 20))
+        title_frame.pack(pady=(0, 10))
         
         title_label = tk.Label(
             title_frame,
             text="🧩 SUDOKU SOLVER",
-            font=("Helvetica", 28, "bold"),
+            font=("Helvetica", 22, "bold"),
             fg=self.colors['highlight'],
             bg=self.colors['bg']
         )
@@ -110,18 +108,18 @@ class SudokuGUI:
         subtitle_label = tk.Label(
             title_frame,
             text="Powered by CSP & Arc Consistency Algorithm",
-            font=("Helvetica", 11),
+            font=("Helvetica", 9),
             fg=self.colors['text_dim'],
             bg=self.colors['bg']
         )
         subtitle_label.pack()
         
         # Grid container with border
-        grid_container = tk.Frame(content_frame, bg=self.colors['highlight'], bd=3)
-        grid_container.pack(pady=20)
+        grid_container = tk.Frame(content_frame, bg=self.colors['highlight'], bd=2)
+        grid_container.pack(pady=10)
         
         grid_frame = tk.Frame(grid_container, bg=self.colors['grid_dark'])
-        grid_frame.pack(padx=3, pady=3)
+        grid_frame.pack(padx=2, pady=2)
         
         # Create 9x9 Sudoku grid
         for row in range(9):
@@ -151,7 +149,7 @@ class SudokuGUI:
                 # Entry widget with modern styling
                 entry = tk.Entry(
                     cell_container,
-                    width=2,
+                    width=3,
                     font=("Helvetica", 20, "bold"),
                     justify="center",
                     fg=self.colors['text'],
@@ -160,7 +158,7 @@ class SudokuGUI:
                     insertbackground=self.colors['highlight'],
                     bd=0
                 )
-                entry.pack(padx=8, pady=(8, 2))
+                entry.pack(padx=10, pady=(8, 2))
                 
                 # Domain label (initially hidden)
                 domain_label = tk.Label(
@@ -170,7 +168,7 @@ class SudokuGUI:
                     fg=self.colors['text_dim'],
                     bg=bg_color,
                     justify="center",
-                    wraplength=45  # Allow text wrapping for long domains
+                    wraplength=50  # Allow text wrapping for long domains
                 )
                 domain_label.pack(padx=2, pady=(0, 4))
                 
@@ -191,106 +189,106 @@ class SudokuGUI:
         
         # Controls container
         controls_container = tk.Frame(content_frame, bg=self.colors['bg'])
-        controls_container.pack(pady=20, fill=tk.X)
+        controls_container.pack(pady=10, fill=tk.X)
         
         # Mode 1: Generate Puzzle
         gen_frame = tk.LabelFrame(
             controls_container,
             text="  🎲 Generate Puzzle (Mode 1)  ",
-            font=("Helvetica", 12, "bold"),
+            font=("Helvetica", 10, "bold"),
             fg=self.colors['text'],
             bg=self.colors['bg_light'],
             bd=2,
             relief=tk.RAISED
         )
-        gen_frame.pack(fill=tk.X, pady=5)
+        gen_frame.pack(fill=tk.X, pady=3)
         
         buttons_frame = tk.Frame(gen_frame, bg=self.colors['bg_light'])
-        buttons_frame.pack(pady=10)
+        buttons_frame.pack(pady=6)
         
         for difficulty in ["Easy", "Medium", "Hard"]:
             btn = tk.Button(
                 buttons_frame,
                 text=f"🎯 {difficulty}",
                 command=lambda d=difficulty: self.generate(d),
-                font=("Helvetica", 11, "bold"),
+                font=("Helvetica", 9, "bold"),
                 fg=self.colors['text'],
                 bg=self.colors['button'],
                 activebackground=self.colors['button_hover'],
                 activeforeground=self.colors['text'],
                 bd=0,
-                padx=20,
-                pady=10,
+                padx=15,
+                pady=6,
                 cursor="hand2"
             )
-            btn.pack(side=tk.LEFT, padx=5)
+            btn.pack(side=tk.LEFT, padx=3)
             self.add_hover_effect(btn)
         
         # Mode 2: Manual Input & Solve
         action_frame = tk.LabelFrame(
             controls_container,
             text="  🤖 AI Solver Actions (Mode 2)  ",
-            font=("Helvetica", 12, "bold"),
+            font=("Helvetica", 10, "bold"),
             fg=self.colors['text'],
             bg=self.colors['bg_light'],
             bd=2,
             relief=tk.RAISED
         )
-        action_frame.pack(fill=tk.X, pady=5)
+        action_frame.pack(fill=tk.X, pady=3)
         
         action_buttons_frame = tk.Frame(action_frame, bg=self.colors['bg_light'])
-        action_buttons_frame.pack(pady=10)
+        action_buttons_frame.pack(pady=6)
         
         solve_btn = tk.Button(
             action_buttons_frame,
             text="▶️ Solve with AI",
             command=self.start_solve,
-            font=("Helvetica", 11, "bold"),
+            font=("Helvetica", 9, "bold"),
             fg=self.colors['text'],
             bg='#2ecc71',
             activebackground='#27ae60',
             activeforeground=self.colors['text'],
             bd=0,
-            padx=20,
-            pady=10,
+            padx=12,
+            pady=6,
             cursor="hand2"
         )
-        solve_btn.pack(side=tk.LEFT, padx=5)
+        solve_btn.pack(side=tk.LEFT, padx=2)
         self.add_hover_effect(solve_btn)
         
         check_btn = tk.Button(
             action_buttons_frame,
-            text="✓ Validate Board",
+            text="✓ Validate",
             command=self.check_solvability,
-            font=("Helvetica", 11, "bold"),
+            font=("Helvetica", 9, "bold"),
             fg=self.colors['text'],
             bg='#3498db',
             activebackground='#2980b9',
             activeforeground=self.colors['text'],
             bd=0,
-            padx=20,
-            pady=10,
+            padx=12,
+            pady=6,
             cursor="hand2"
         )
-        check_btn.pack(side=tk.LEFT, padx=5)
+        check_btn.pack(side=tk.LEFT, padx=2)
         self.add_hover_effect(check_btn)
         
         # Toggle domains button
         domains_btn = tk.Button(
             action_buttons_frame,
-            text="👁️ Show Domains",
+            text="👁️ Domains",
             command=self.toggle_domains,
-            font=("Helvetica", 11, "bold"),
+            font=("Helvetica", 9, "bold"),
             fg=self.colors['text'],
             bg='#9b59b6',
             activebackground='#8e44ad',
             activeforeground=self.colors['text'],
             bd=0,
-            padx=20,
-            pady=10,
+            padx=12,
+            pady=6,
             cursor="hand2"
         )
-        domains_btn.pack(side=tk.LEFT, padx=5)
+        domains_btn.pack(side=tk.LEFT, padx=2)
         self.add_hover_effect(domains_btn)
         self.domains_btn = domains_btn  # Store reference
         
@@ -299,91 +297,51 @@ class SudokuGUI:
             action_buttons_frame,
             text="🔄 Mode: Simple",
             command=self.toggle_domain_mode,
-            font=("Helvetica", 11, "bold"),
+            font=("Helvetica", 9, "bold"),
             fg=self.colors['text'],
             bg='#f39c12',
             activebackground='#e67e22',
             activeforeground=self.colors['text'],
             bd=0,
-            padx=20,
-            pady=10,
+            padx=12,
+            pady=6,
             cursor="hand2"
         )
-        mode_btn.pack(side=tk.LEFT, padx=5)
+        mode_btn.pack(side=tk.LEFT, padx=2)
         self.add_hover_effect(mode_btn)
         self.mode_btn = mode_btn  # Store reference
         
         clear_btn = tk.Button(
             action_buttons_frame,
-            text="🗑️ Clear Board",
+            text="🗑️ Clear",
             command=self.clear_board,
-            font=("Helvetica", 11, "bold"),
+            font=("Helvetica", 9, "bold"),
             fg=self.colors['text'],
             bg='#e74c3c',
             activebackground='#c0392b',
             activeforeground=self.colors['text'],
             bd=0,
-            padx=20,
-            pady=10,
+            padx=12,
+            pady=6,
             cursor="hand2"
         )
-        clear_btn.pack(side=tk.LEFT, padx=5)
+        clear_btn.pack(side=tk.LEFT, padx=2)
         self.add_hover_effect(clear_btn)
-        
-        # Speed control
-        speed_frame = tk.Frame(controls_container, bg=self.colors['bg_light'], bd=2, relief=tk.RAISED)
-        speed_frame.pack(fill=tk.X, pady=5, padx=5)
-        
-        speed_label = tk.Label(
-            speed_frame,
-            text="⚡ Solving Speed:",
-            font=("Helvetica", 11, "bold"),
-            fg=self.colors['text'],
-            bg=self.colors['bg_light']
-        )
-        speed_label.pack(side=tk.LEFT, padx=10, pady=10)
-        
-        self.speed_var = tk.DoubleVar(value=0.05)
-        speed_scale = tk.Scale(
-            speed_frame,
-            from_=0.0,
-            to=0.2,
-            resolution=0.01,
-            variable=self.speed_var,
-            orient=tk.HORIZONTAL,
-            length=300,
-            font=("Helvetica", 9),
-            fg=self.colors['text'],
-            bg=self.colors['bg_light'],
-            troughcolor=self.colors['accent'],
-            highlightthickness=0,
-            bd=0
-        )
-        speed_scale.pack(side=tk.LEFT, padx=10, pady=10)
-        
-        speed_info = tk.Label(
-            speed_frame,
-            text="(0 = Instant)",
-            font=("Helvetica", 9),
-            fg=self.colors['text_dim'],
-            bg=self.colors['bg_light']
-        )
-        speed_info.pack(side=tk.LEFT, padx=5)
         
         # Status bar
         status_frame = tk.Frame(content_frame, bg=self.colors['accent'], bd=2, relief=tk.SUNKEN)
-        status_frame.pack(fill=tk.X, pady=(10, 0))
+        status_frame.pack(fill=tk.X, pady=(8, 0))
         
         self.status_var = tk.StringVar(value="Ready to solve puzzles! 🚀")
         status_label = tk.Label(
             status_frame,
             textvariable=self.status_var,
-            font=("Helvetica", 11),
+            font=("Helvetica", 9),
             fg=self.colors['text'],
             bg=self.colors['accent'],
             anchor=tk.W
         )
-        status_label.pack(padx=10, pady=8, fill=tk.X)
+        status_label.pack(padx=8, pady=5, fill=tk.X)
         
     def add_hover_effect(self, button):
         """Add hover effect to buttons"""
@@ -512,7 +470,7 @@ class SudokuGUI:
                 self.domain_labels[r][c].config(text="")
         self.initial_state = [0] * 81
         self.show_domains = False
-        self.domains_btn.config(text="👁️ Show Domains")
+        self.domains_btn.config(text="👁️ Domains")
         self.status_var.set("Board cleared! Ready for new puzzle. 🎯")
     
     def toggle_domains(self):
@@ -520,10 +478,10 @@ class SudokuGUI:
         self.show_domains = not self.show_domains
         
         if self.show_domains:
-            self.domains_btn.config(text="👁️ Hide Domains")
+            self.domains_btn.config(text="👁️ Hide")
             self.update_domain_display()
         else:
-            self.domains_btn.config(text="👁️ Show Domains")
+            self.domains_btn.config(text="👁️ Domains")
             # Clear all domain labels
             for r in range(9):
                 for c in range(9):
