@@ -45,6 +45,7 @@ class SudokuGUI:
         self.solving_speed = 0.05
         self.game_constrains = [[] for _ in range(81)]
         self.show_domains = False  # Toggle for domain display
+        self.domain_mode = "simple"  # "simple" or "ac3"
         
         # Setup constraints once
         make_constrain(self.game_constrains)
@@ -177,8 +178,8 @@ class SudokuGUI:
                 vcmd = (self.root.register(self.validate_input), '%P')
                 entry.config(validate="key", validatecommand=vcmd)
                 
-                # Bind to check conflicts on every key release
-                entry.bind('<KeyRelease>', lambda e, r=row, c=col: self.check_cell_conflict(r, c))
+                # Bind to check conflicts and update domains on every key release
+                entry.bind('<KeyRelease>', lambda e, r=row, c=col: self.on_cell_change(r, c))
                 
                 row_cells.append(entry)
                 row_frames.append(cell_container)
@@ -292,6 +293,25 @@ class SudokuGUI:
         domains_btn.pack(side=tk.LEFT, padx=5)
         self.add_hover_effect(domains_btn)
         self.domains_btn = domains_btn  # Store reference
+        
+        # Toggle domain mode button (Simple vs AC-3)
+        mode_btn = tk.Button(
+            action_buttons_frame,
+            text="🔄 Mode: Simple",
+            command=self.toggle_domain_mode,
+            font=("Helvetica", 11, "bold"),
+            fg=self.colors['text'],
+            bg='#f39c12',
+            activebackground='#e67e22',
+            activeforeground=self.colors['text'],
+            bd=0,
+            padx=20,
+            pady=10,
+            cursor="hand2"
+        )
+        mode_btn.pack(side=tk.LEFT, padx=5)
+        self.add_hover_effect(mode_btn)
+        self.mode_btn = mode_btn  # Store reference
         
         clear_btn = tk.Button(
             action_buttons_frame,
@@ -430,6 +450,11 @@ class SudokuGUI:
             board = self.get_board_from_ui()
             if not self.has_any_conflicts(board):
                 self.status_var.set("✅ No conflicts detected!")
+    
+    def on_cell_change(self, row, col):
+        """Handle cell value change - check conflicts and update domains"""
+        # Check for conflicts
+        self.check_cell_conflict(row, col)
         
         # Update domains if enabled
         if self.show_domains:
@@ -504,8 +529,90 @@ class SudokuGUI:
                 for c in range(9):
                     self.domain_labels[r][c].config(text="")
     
+    def toggle_domain_mode(self):
+        """Toggle between simple and AC-3 domain modes"""
+        if self.domain_mode == "simple":
+            self.domain_mode = "ac3"
+            self.mode_btn.config(text="🔄 Mode: AC-3")
+        else:
+            self.domain_mode = "simple"
+            self.mode_btn.config(text="🔄 Mode: Simple")
+        
+        # Update display if domains are currently shown
+        if self.show_domains:
+            self.update_domain_display()
+    
     def update_domain_display(self):
-        """Calculate and display current domains for all cells"""
+        """Calculate and display domains based on current mode"""
+        if self.domain_mode == "simple":
+            self.update_domain_display_simple()
+        else:
+            self.update_domain_display_ac3()
+    
+    def update_domain_display_simple(self):
+        """Calculate and display current available values for each empty cell (Simple Mode)"""
+        try:
+            board = self.get_board_from_ui()
+            
+            # For each empty cell, calculate which values are NOT used by its neighbors
+            for r in range(9):
+                for c in range(9):
+                    idx = r * 9 + c
+                    
+                    if board[idx] == 0:  # Only show for empty cells
+                        # Start with all possible values
+                        available_values = set(range(1, 10))
+                        
+                        # Remove values used by neighbors (same row, column, or box)
+                        for neighbor_idx in self.game_constrains[idx]:
+                            neighbor_value = board[neighbor_idx]
+                            if neighbor_value != 0:
+                                available_values.discard(neighbor_value)
+                        
+                        # Display the available values
+                        if len(available_values) == 0:
+                            domain_text = "✗"
+                            color = '#ff3333'  # Red - no valid values (conflict)
+                        elif len(available_values) == 1:
+                            domain_text = str(list(available_values)[0])
+                            color = '#2ecc71'  # Green - only one choice
+                        else:
+                            # Format domain - show all available values
+                            domain_list = sorted(list(available_values))
+                            if len(domain_list) <= 3:
+                                # Short domain: show in one line
+                                domain_text = ''.join(str(d) for d in domain_list)
+                            elif len(domain_list) <= 6:
+                                # Medium domain: show in two lines
+                                mid = (len(domain_list) + 1) // 2
+                                line1 = ''.join(str(d) for d in domain_list[:mid])
+                                line2 = ''.join(str(d) for d in domain_list[mid:])
+                                domain_text = f"{line1}\n{line2}"
+                            else:
+                                # Long domain: show in three lines (max 9 digits: 123/456/789)
+                                domain_text = ''.join(str(d) for d in domain_list[:3]) + '\n'
+                                domain_text += ''.join(str(d) for d in domain_list[3:6]) + '\n'
+                                domain_text += ''.join(str(d) for d in domain_list[6:])
+                            color = self.colors['text_dim']  # Gray - multiple choices
+                        
+                        self.domain_labels[r][c].config(text=domain_text, fg=color)
+                    else:
+                        # Filled cells don't show domains
+                        self.domain_labels[r][c].config(text="")
+            
+            self.root.update()
+            
+        except Exception as e:
+            print(f"Error updating domain display (simple): {e}")
+            import traceback
+            traceback.print_exc()
+            # Clear domains on error
+            for r in range(9):
+                for c in range(9):
+                    self.domain_labels[r][c].config(text="")
+    
+    def update_domain_display_ac3(self):
+        """Calculate and display AC-3 reduced domains (AC-3 Mode)"""
         try:
             board = self.get_board_from_ui()
             
@@ -513,16 +620,16 @@ class SudokuGUI:
             game_constrains = [[] for _ in range(81)]
             make_constrain(game_constrains)
             
-            # Setup initial domains
+            # Setup initial domains based on CURRENT board state
             domains = []
             for val in board:
                 if val != 0:
-                    domains.append({val})
+                    domains.append({val})  # Filled cells get singleton domain
                 else:
-                    domains.append(set(range(1, 10)))
+                    domains.append(set(range(1, 10)))  # Empty cells get full domain
             
             # Apply AC-3 to get reduced domains
-            ac3(game_constrains, domains)
+            ac3_result = ac3(game_constrains, domains)
             
             # Display domains
             for r in range(9):
@@ -532,12 +639,12 @@ class SudokuGUI:
                         domain = domains[idx]
                         if len(domain) == 0:
                             domain_text = "✗"
-                            color = '#ff3333'
+                            color = '#ff3333'  # Red - no valid values (conflict)
                         elif len(domain) == 1:
                             domain_text = str(list(domain)[0])
-                            color = '#2ecc71'
+                            color = '#2ecc71'  # Green - AC-3 solved this cell
                         else:
-                            # Format domain - show all values
+                            # Format domain - show all AC-3 reduced values
                             domain_list = sorted(list(domain))
                             if len(domain_list) <= 3:
                                 # Short domain: show in one line
@@ -553,10 +660,11 @@ class SudokuGUI:
                                 domain_text = ''.join(str(d) for d in domain_list[:3]) + '\n'
                                 domain_text += ''.join(str(d) for d in domain_list[3:6]) + '\n'
                                 domain_text += ''.join(str(d) for d in domain_list[6:])
-                            color = self.colors['text_dim']
+                            color = self.colors['text_dim']  # Gray - multiple choices after AC-3
                         
                         self.domain_labels[r][c].config(text=domain_text, fg=color)
                     else:
+                        # Filled cells don't show domains
                         self.domain_labels[r][c].config(text="")
             
             # Clear references to help garbage collection
@@ -565,7 +673,9 @@ class SudokuGUI:
             self.root.update()
             
         except Exception as e:
-            print(f"Error updating domain display: {e}")
+            print(f"Error updating domain display (AC-3): {e}")
+            import traceback
+            traceback.print_exc()
             # Clear domains on error
             for r in range(9):
                 for c in range(9):
