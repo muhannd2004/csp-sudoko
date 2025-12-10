@@ -32,15 +32,6 @@ A sophisticated Sudoku puzzle solver and generator using **Constraint Satisfacti
 - **Domain Visualization**: Real-time display of possible values for each cell
 - **Conflict Detection**: Real-time highlighting of invalid entries
 
-![Board Layout](board.png)
-*Figure 1: Main Sudoku board with 9x9 grid divided into 3x3 boxes*
-
-![Control Board](Control%20board.png)
-*Figure 2: Control panel showing all available features and buttons*
-
-![Domain Visualization](domain%20Cell.png)
-*Figure 3: Domain display showing possible values for each empty cell after AC-3*
-
 ---
 
 ## Architecture & Data Structures
@@ -227,11 +218,6 @@ function GENERATE_SUDOKU(difficulty):
 ---
 
 ## Sample Runs & Performance
-
-### Test Environment
-- **CPU**: Modern x86_64 processor
-- **Python**: 3.12
-- **GUI**: Tkinter
 
 ### Performance Comparison
 
@@ -681,9 +667,6 @@ csp-sudoko/
 │   ├── make_constrain.py    # Constraint graph builder
 │   ├── sudoku_generator.py  # Puzzle generation
 │   └── solve_puzzle.py      # Solver utilities
-├── board.png                # GUI board screenshot
-├── Control board.png        # Control panel screenshot
-├── domain Cell.png          # Domain visualization screenshot
 └── README.md               # This file
 ```
 
@@ -698,13 +681,6 @@ csp-sudoko/
 5. **Resource Constraints**: Reasonable memory and CPU for generation (<5s, <100MB)
 
 
-
-## Contributors
-
-- **Development**: AI-Powered CSP Solver
-- **Algorithms**: AC-3, Backtracking with MAC, MRV Heuristic
-- **GUI**: Tkinter-based modern interface
-
 ---
 
 ## License
@@ -713,12 +689,4 @@ Educational project for demonstrating CSP and AI techniques.
 
 ---
 
-## Acknowledgments
-
-Special thanks to:
-- CSP research community
-- Sudoku puzzle creators
-- Python and Tkinter developers
-
----
 
